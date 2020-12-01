@@ -110,7 +110,7 @@ class Model(nn.Module):
 		self.load(path=args.pretrained)
 
 	def forward(self, input):
-		return self.model.G(input)
+		return self.model.gen(input)
 
 	def save(self, epoch):
 		torch.save(self.state_dict(), os.path.join(self.save_dir, 'model-{:d}.pt'.format(epoch)))

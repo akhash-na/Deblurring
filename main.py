@@ -2,6 +2,7 @@ import argparse
 import os
 import time
 from .dataset import Dataset
+from .loss import Loss
 from .model import Model
 from .optimizer import Optimizer
 from .train import Trainer
@@ -35,6 +36,7 @@ if __name__ == '__main__':
 	dataset = Dataset(args).get_loader()
 	model = Model(args)
 	optimizer = Optimizer(args, model)
+	loss = Loss(args, model, optimizer)
 	trainer = Trainer(args, model, loss, optimizer, dataset)
 
 	if args.do_train:
