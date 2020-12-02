@@ -4,6 +4,8 @@ import time
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
+from torch.utils.data import SequentialSampler, RandomSampler
 import torch.optim as optim
 import torch.optim.lr_scheduler as lrs
 
@@ -39,7 +41,46 @@ if __name__ == '__main__':
 	if args.seed < 0:
 		args.seed = int(time.time())
 
-	dataset = Dataset(args).get_loader()
+	if args.do_train:
+		train_dataset = Dataset(args, 'train')
+		train_loader = DataLoader(
+						dataset=train_dataset,
+						batch_size=args.batch_size,
+						shuffle=False,
+						sampler=RandomSampler(train_dataset, replacement=True),
+						pin_memory=True,
+						drop_last=True,
+					)
+	else:
+		train_loader = None
+
+	if args.do_validate:
+		val_dataset = Dataset(args, 'val')
+		val_loader = DataLoader(
+						dataset=val_dataset,
+						batch_size=args.batch_size,
+						shuffle=False,
+						sampler=SequentialSampler(val_dataset),
+						pin_memory=True,
+						drop_last=False,
+					)
+	else:
+		val_loader = None
+
+	if args.do_test:
+		test_dataset = Dataset(args, 'test')
+		test_loader = DataLoader(
+						dataset=test_dataset,
+						batch_size=args.batch_size,
+						shuffle=False,
+						sampler=SequentialSampler(test_dataset),
+						pin_memory=True,
+						drop_last=False,
+					)
+	else:
+		test_loader = None
+
+	dataset = {'train': train_loader, 'val': val_loader, 'test': test_loader}
 	model = Model(args)
 	optim_adv = optim.Adam(model.adv.parameters(), lr=1e-4)
 	scheduler_adv = optim.MultiStepLR(optim_adv, milestones=[500, 750, 900], gamma=0.1)

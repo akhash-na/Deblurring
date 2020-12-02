@@ -66,7 +66,7 @@ class Trainer():
 			if (epoch + 1) % self.args.save_every == 0:
 				self.save(epoch + 1)
 
-			if (epoch + 1) % self.args.validate_every == 0:
+			if (epoch + 1) % self.args.validate_every == 0 and self.args.do_validate:
 				self.evaluate('val')
 
 	def evaluate(self, mode):
@@ -79,7 +79,7 @@ class Trainer():
 		ct = 0
 
 		torch.set_grad_enabled(False)		
-		tq = tqdm(self.dataset['val'], ncols=80, smoothing=0, bar_format='{desc}|{bar}{r_bar}')
+		tq = tqdm(self.dataset[mode], ncols=80, smoothing=0, bar_format='{desc}|{bar}{r_bar}')
 
 		for idx, batch in enumerate(tq):
 			blur = batch[0]
