@@ -96,33 +96,31 @@ class Adversary(nn.Module):
 class Model(nn.Module):
 	def __init__(self, args):
 		super(Model, self).__init__()
-
-		self.args = args
-		self.save_dir = os.path.join(args.save_dir, 'models')
-		os.makedirs(self.save_dir, exist_ok=True)
-
 		self.gen = Generator(args.n_resblocks, args.n_feats, args.kernel_size, args.n_scales)
 		if self.args.loss.lower().find('adv') >= 0:
 			self.adv = Adversary(args.n_feats, args.kernel_size)
 		else:
 			self.adv = None
+		self.BCELoss = nn.BCEWithLogitsLoss()
+		self.MSELoss = nn.MSELoss()
+		self.lamda = args.adv_loss_weight
 
-		self.load(path=args.pretrained)
+	def forward(self, blur, sharp=None):
+		fake = self.model.gen(blur)
 
-	def forward(self, input):
-		return self.model.gen(input)
+		if sharp is not None:
+			fake_pred = self.model.adv(fake[-1])
+			real_pred = self.model.adv(sharp[-1])
 
-	def save(self, epoch):
-		torch.save(self.state_dict(), os.path.join(self.save_dir, 'model-{:d}.pt'.format(epoch)))
+			label_fake = torch.zeros_like(fake_pred)
+			label_real = torch.ones_like(real_pred)
 
-	def load(self, epoch=None, path=None):
-		if epoch:
-			model = os.path.join(self.save_dir, 'model-{:d}.pt'.format(epoch))
-		elif path:
-			model = path
+			adv_loss = self.BCELoss(fake_pred, label_fake) + self.BCELoss(real_pred, label_real)
+			gen_adv_loss = self.BCELoss(fake_pred, label_real)
+			gen_mse_loss = self.MSELoss(fake, sharp)
+			gen_loss = gen_adv_loss * lamda + gen_mse_loss
 		else:
-			raise Exception('no epoch number or model path specified')
+			gen_loss = None
+			adv_loss = None
 
-		print('Loading model from {}'.format(model))
-		state_dict = torch.load(model)
-		self.load_state_dict(state_dict)
+		return fake, gen_loss, adv_loss

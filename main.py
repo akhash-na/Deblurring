@@ -1,11 +1,16 @@
 import argparse
 import os
 import time
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.optim.lr_scheduler as lrs
+
 from .dataset import Dataset
-from .loss import Loss
 from .model import Model
-from .optimizer import Optimizer
 from .train import Trainer
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -17,13 +22,13 @@ if __name__ == '__main__':
 	parser.add_argument('-n_features', type=int, default=64, help='number of feature maps')
 	parser.add_argument('-kernel_size', type=int, default=5, help='size of conv kernel')
 	parser.add_argument('-patch_size', type=int, default=256, help='training patch size')
-	parser.add_argument('-batch_size', type=int, default=16, help='batch size for training')
+	parser.add_argument('-batch_size', type=int, default=2, help='batch size for training')
 	parser.add_argument('-validate_every', type=int, default=10, help='validation at every N epochs')
 	parser.add_argument('-do_train', type=str2bool, default=True, help='train the model')
 	parser.add_argument('-do_validate', type=str2bool, default=True, help='validate the model')
 	parser.add_argument('-do_test', type=str2bool, default=True, help='test the model')
 	parser.add_argument('-adv_loss_weight', type=float, default=1e-4, help='lambda of adversarial loss')
-	parser.add_argument('-save_dir', type=str, default='', help='directory to save logs')
+	parser.add_argument('-save_dir', type=str, default='', help='directory to save models')
 	parser.add_argument('-save_every', type=int, default=10, help='save state at every N epochs')
 	parser.add_argument('-n_epochs', type=int, default=1000, help='number of epochs to train')
 	parser.add_argument('-train_adv_only', type=str2bool, default=False, help='to train only the adversary')
@@ -36,21 +41,17 @@ if __name__ == '__main__':
 
 	dataset = Dataset(args).get_loader()
 	model = Model(args)
-	optimizer = Optimizer(args, model)
-	loss = Loss(args, model, optimizer)
-	trainer = Trainer(args, model, loss, optimizer, dataset)
-
-	if args.do_train:
-		for epoch in range(args.n_epochs):
-			trainer.train(epoch)
-
-			if args.do_validate and epoch % args.validate_every == 0:
-				trainer.validate(epoch)
-
-			if epoch % args.save_every == 0:
-				trainer.save(args.save_dir, epoch)
+	optim_adv = optim.Adam(model.adv.parameters(), lr=1e-4)
+	scheduler_adv = optim.MultiStepLR(optim_adv, milestones=[500, 750, 900], gamma=0.1)
+	optim_gen = optim.Adam(model.gen.parameters(), lr=1e-4)
+	scheduler_gen = optim.MultiStepLR(optim_gen, milestones=[500, 750, 900], gamma=0.1)
+	optimizer = {'adv':optim_adv, 'gen':optim_gen}
+	scheduler = {'adv':scheduler_adv, 'gen':scheduler_gen}
+	trainer = Trainer(args, model, optimizer, scheduler, dataset)
+	
+	trainer.train()
 
 	if args.do_test:
-		trainer.test(args.n_epochs)
+		trainer.evaluate('test')
 
-	trainer.save(save_dir, args.n_epochs)
+	trainer.save()
