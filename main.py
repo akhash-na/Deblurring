@@ -22,10 +22,11 @@ if __name__ == '__main__':
 	parser.add_argument('-do_train', type=str2bool, default=True, help='train the model')
 	parser.add_argument('-do_validate', type=str2bool, default=True, help='validate the model')
 	parser.add_argument('-do_test', type=str2bool, default=True, help='test the model')
-	parser.add_argument('-loss', type=str, default='1*L1', help='loss function')
+	parser.add_argument('-adv_loss_weight', type=float, default=1e-4, help='lambda of adversarial loss')
 	parser.add_argument('-save_dir', type=str, default='', help='directory to save logs')
 	parser.add_argument('-save_every', type=int, default=10, help='save state at every N epochs')
 	parser.add_argument('-n_epochs', type=int, default=1000, help='number of epochs to train')
+	parser.add_argument('-train_adv_only', type=str2bool, default=False, help='to train only the adversary')
 	args = parser.parse_args()
 
 	os.makedir(args.save_dir, exist_ok=True)
