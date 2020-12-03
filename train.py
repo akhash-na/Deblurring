@@ -1,7 +1,8 @@
 import os
 import torch
 from tqdm import tqdm
-from skimage.measure import compare_psnr as psnr, compare_ssim as ssim
+from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
+import numpy as np
 
 class Trainer():
 
@@ -29,7 +30,7 @@ class Trainer():
 			'adv_lrs': self.scheduler['adv'].state_dict(),
 			'gen_lrs': self.scheduler['gen'].state_dict(),
 			}
-		torch.save(checkpoint, os.path.join(args.save_dir, 'checkpoint-epoch-'+epoch+'.pt'))
+		torch.save(checkpoint, os.path.join(self.args.save_dir, 'checkpoint-epoch-'+str(epoch)+'.pt'))
 
 	def train(self):
 		self.model.train()
@@ -103,8 +104,11 @@ class Trainer():
 			adv_loss_t += adv_loss.item()
 			ct += 1
 
-			psnr_t += psnr(sharp[-1], fake[-1])
-			ssim_t += ssim(sharp[-1], fake[-1])
+			im1 = np.moveaxis(sharp[-1].clamp(0, 255).round_().cpu().detach().numpy()[0], 0, -1)
+			im2 = np.moveaxis(fake[-1].clamp(0, 255).round_().cpu().detach().numpy()[0], 0, -1)
+
+			psnr_t += psnr(im1, im2, data_range=255)
+			ssim_t += ssim(im1, im2, data_range=255, multichannel=True)
 
 		print('[Val Adv Loss: %.3f / Val Gen Loss: %.3f / PSNR: %.3f / SSIM: %.3f]' 
 			% (adv_loss_t / ct, gen_loss_t / ct, psnr_t / ct, ssim_t / ct))

@@ -62,7 +62,7 @@ if __name__ == '__main__':
 		val_dataset = Dataset(args, 'val')
 		val_loader = DataLoader(
 						dataset=val_dataset,
-						batch_size=args.batch_size,
+						batch_size=1,
 						shuffle=False,
 						sampler=SequentialSampler(val_dataset),
 						pin_memory=True,
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 		test_dataset = Dataset(args, 'test')
 		test_loader = DataLoader(
 						dataset=test_dataset,
-						batch_size=args.batch_size,
+						batch_size=1,
 						shuffle=False,
 						sampler=SequentialSampler(test_dataset),
 						pin_memory=True,

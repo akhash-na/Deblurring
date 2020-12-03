@@ -24,7 +24,7 @@ class Dataset(data.Dataset):
 		self.sharp_list.sort()
 		if mode == 'train':
 			assert len(self.blur_list) == len(self.sharp_list)
-			
+
 	def __getitem__(self, idx):
 		blur = imageio.imread(self.blur_list[idx], pilmode='RGB')
 		if len(self.sharp_list) > 0:
@@ -35,8 +35,8 @@ class Dataset(data.Dataset):
 		pad_width = 0
 		if self.mode == 'train':
 			imgs = common.crop(*imgs, ps=self.args.patch_size)
-			imgs = common.augment(*imgs, hflip=True, rot=True, shuffle=True, change_saturation=True, rgb_range=256)
-			imgs[0] = common.add_noise(imgs[0], sigma_sigma=2, rgb_range=256)
+			imgs = common.augment(*imgs, hflip=True, rot=True, shuffle=True, change_saturation=True, rgb_range=255)
+			imgs[0] = common.add_noise(imgs[0], sigma_sigma=2, rgb_range=255)
 
 		imgs = common.generate_pyramid(*imgs, n_scales=self.args.n_scales)
 		imgs = common.np2tensor(*imgs)
