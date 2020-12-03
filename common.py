@@ -141,7 +141,7 @@ def generate_pyramid(*args, n_scales):
         if img.dtype != np.float32:
             img = img.astype(np.float32)
         pyramid = list(pyramid_gaussian(img, n_scales-1, multichannel=True))
-
+        pyramid.reverse()
         return pyramid
 
     return _apply(_generate_pyramid, args)
@@ -150,7 +150,7 @@ def np2tensor(*args):
     def _np2tensor(x):
         np_transpose = np.ascontiguousarray(x.transpose(2, 0, 1))
         tensor = torch.from_numpy(np_transpose)
-
+        tensor = tensor.type(torch.FloatTensor)
         return tensor
 
     return _apply(_np2tensor, args)

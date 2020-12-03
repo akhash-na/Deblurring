@@ -10,16 +10,16 @@ class Dataset(data.Dataset):
 		super(Dataset, self).__init__()
 		self.blur_list = []
 		self.sharp_list = []
-
+		self.mode = mode
+		self.args = args
 		for path, dirs, files in os.walk(os.path.join(args.data_folder, mode)):
 			for filename in files:
 				filepath = os.path.join(path, filename)
-
 				if filepath.endswith(".png"):
 					if 'blur' in filepath and 'blur_gamma' not in filepath:
-						blur_list.append(filepath)
+						self.blur_list.append(filepath)
 					if 'sharp' in filepath:
-						sharp_list.append(filepath)
+						self.sharp_list.append(filepath)
 
 	def __getitem__(self, idx):
 		blur = imageio.imread(self.blur_list[idx], pilmode='RGB')
@@ -31,15 +31,16 @@ class Dataset(data.Dataset):
 		pad_width = 0
 		if self.mode == 'train':
 			imgs = common.crop(*imgs, ps=self.args.patch_size)
-			imgs = common.augment(*imgs, hflip=True, rot=True, shuffle=True, change_saturation=True, rgb_range=self.args.rgb_range)
-			imgs[0] = common.add_noise(imgs[0], sigma_sigma=2, rgb_range=self.args.rgb_range)
+			imgs = common.augment(*imgs, hflip=True, rot=True, shuffle=True, change_saturation=True, rgb_range=256)
+			imgs[0] = common.add_noise(imgs[0], sigma_sigma=2, rgb_range=256)
 
-		if self.args.gaussian_pyramid:
-			imgs = common.generate_pyramid(*imgs, n_scales=self.args.n_scales)
-
+		imgs = common.generate_pyramid(*imgs, n_scales=self.args.n_scales)
 		imgs = common.np2tensor(*imgs)
 
 		blur = imgs[0]
 		sharp = imgs[1] if len(imgs) > 1 else None
 
 		return blur, sharp, pad_width
+
+	def __len__(self):
+		return len(self.blur_list)

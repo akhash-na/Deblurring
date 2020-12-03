@@ -1,22 +1,23 @@
 import os
 import torch
 from tqdm import tqdm
-from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
+from skimage.measure import compare_psnr as psnr, compare_ssim as ssim
 
 class Trainer():
 
 	def __init__(self, args, model, optimizer, scheduler, dataset):
 		self.args = args
 		self.model = model
+		self.optimizer = optimizer
 		self.scheduler = scheduler
 		self.dataset = dataset
 		if args.pretrained != '':
 			checkpoint = torch.load(args.pretrained)
-		self.model.load_state_dict(checkpoint['model'])
-		self.optimizer['adv'].load_state_dict(checkpoint['adv_optimizer'])
-		self.optimizer['gen'].load_state_dict(checkpoint['gen_optimizer'])
-		self.scheduler['adv'].load_state_dict(checkpoint['adv_lrs'])
-		self.scheduler['gen'].load_state_dict(checkpoint['gen_lrs'])
+			self.model.load_state_dict(checkpoint['model'])
+			self.optimizer['adv'].load_state_dict(checkpoint['adv_optimizer'])
+			self.optimizer['gen'].load_state_dict(checkpoint['gen_optimizer'])
+			self.scheduler['adv'].load_state_dict(checkpoint['adv_lrs'])
+			self.scheduler['gen'].load_state_dict(checkpoint['gen_lrs'])
 
 	def save(self, epoch=None):
 		epoch = self.args.n_epochs if epoch is None else epoch	
@@ -38,21 +39,30 @@ class Trainer():
 			adv_loss_t = 0.0
 			ct = 0
 
-			print('[Epoch {} / lr {:.2e}]'.format(epoch, self.optimizer['gen'].get_lr()))
+			torch.autograd.set_detect_anomaly(True)
 			torch.set_grad_enabled(True)
+
+			print('[Epoch %d / lr %f]' % (epoch, self.scheduler['gen'].get_last_lr()[-1]))
 			tq = tqdm(self.dataset['train'], ncols=80, smoothing=0, bar_format='{desc}|{bar}{r_bar}')
+			# tq = self.dataset['train']
 
 			for idx, batch in enumerate(tq):
 				blur = batch[0]
 				sharp = batch[1]
+
+				for param in self.model.gen.parameters():
+					param.requires_grad = False
 
 				fake, gen_loss, adv_loss = self.model(blur, sharp)
 				self.optimizer['adv'].zero_grad()
 				adv_loss.backward()
 				self.optimizer['adv'].step()
 				self.scheduler['adv'].step()
+				
+				for param in self.model.gen.parameters():
+					param.requires_grad = True
+
 				self.optimizer['gen'].zero_grad()
-				self.optimizer['adv'].zero_grad()
 				gen_loss.backward()
 				self.optimizer['gen'].step()
 				self.scheduler['gen'].step()
