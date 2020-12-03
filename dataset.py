@@ -20,7 +20,11 @@ class Dataset(data.Dataset):
 						self.blur_list.append(filepath)
 					if 'sharp' in filepath:
 						self.sharp_list.append(filepath)
-
+		self.blur_list.sort()
+		self.sharp_list.sort()
+		if mode == 'train':
+			assert len(self.blur_list) == len(self.sharp_list)
+			
 	def __getitem__(self, idx):
 		blur = imageio.imread(self.blur_list[idx], pilmode='RGB')
 		if len(self.sharp_list) > 0:

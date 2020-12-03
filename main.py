@@ -24,10 +24,10 @@ if __name__ == '__main__':
 	parser.add_argument('-n_features', type=int, default=64, help='number of feature maps')
 	parser.add_argument('-kernel_size', type=int, default=5, help='size of conv kernel')
 	parser.add_argument('-patch_size', type=int, default=256, help='training patch size')
-	parser.add_argument('-batch_size', type=int, default=2, help='batch size for training')
+	parser.add_argument('-batch_size', type=int, default=8, help='batch size for training')
 	parser.add_argument('-validate_every', type=int, default=50, help='validation at every N epochs')
 	parser.add_argument('-do_train', type=bool, default=True, help='train the model')
-	parser.add_argument('-do_validate', type=bool, default=True, help='validate the model')
+	parser.add_argument('-do_validate', type=bool, default=False, help='validate the model')
 	parser.add_argument('-do_test', type=bool, default=True, help='test the model')
 	parser.add_argument('-adv_loss_weight', type=float, default=1e-4, help='lambda of adversarial loss')
 	parser.add_argument('-save_dir', type=str, default='models', help='directory to save models')
@@ -35,6 +35,9 @@ if __name__ == '__main__':
 	parser.add_argument('-n_epochs', type=int, default=1000, help='number of epochs to train')
 	parser.add_argument('-train_adv_only', type=bool, default=False, help='to train only the adversary')
 	args = parser.parse_args()
+
+	torch.backends.cudnn.deterministic = True
+	torch.manual_seed(args.seed)
 
 	if not os.path.exists(args.save_dir):
 		os.mkdir(args.save_dir)
@@ -83,10 +86,11 @@ if __name__ == '__main__':
 
 	dataset = {'train': train_loader, 'val': val_loader, 'test': test_loader}
 	model = Model(args)
+	model.to('cuda:0')
 	optim_adv = optim.Adam(model.adv.parameters(), lr=1e-4)
-	scheduler_adv = lrs.MultiStepLR(optim_adv, milestones=[500, 750, 900], gamma=0.1)
+	scheduler_adv = lrs.MultiStepLR(optim_adv, milestones=[500, 750, 900], gamma=0.5)
 	optim_gen = optim.Adam(model.gen.parameters(), lr=1e-4)
-	scheduler_gen = lrs.MultiStepLR(optim_gen, milestones=[500, 750, 900], gamma=0.1)
+	scheduler_gen = lrs.MultiStepLR(optim_gen, milestones=[500, 750, 900], gamma=0.5)
 	optimizer = {'adv':optim_adv, 'gen':optim_gen}
 	scheduler = {'adv':scheduler_adv, 'gen':scheduler_gen}
 	trainer = Trainer(args, model, optimizer, scheduler, dataset)

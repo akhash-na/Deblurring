@@ -105,6 +105,7 @@ class Model(nn.Module):
 		self.MSELoss = nn.MSELoss()
 		self.lamda = args.adv_loss_weight
 
+
 	def forward(self, blur, sharp=None):
 		fake = self.gen(blur)
 		if sharp is not None:

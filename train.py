@@ -20,7 +20,7 @@ class Trainer():
 			self.scheduler['gen'].load_state_dict(checkpoint['gen_lrs'])
 
 	def save(self, epoch=None):
-		epoch = self.args.n_epochs if epoch is None else epoch	
+		epoch = self.args.n_epochs if epoch is None else epoch  
 		checkpoint = { 
 			'epoch': epoch,
 			'model': self.model.state_dict(),
@@ -39,37 +39,36 @@ class Trainer():
 			adv_loss_t = 0.0
 			ct = 0
 
-			torch.autograd.set_detect_anomaly(True)
 			torch.set_grad_enabled(True)
 
-			print('[Epoch %d / lr %f]' % (epoch, self.scheduler['gen'].get_last_lr()[-1]))
+			print('[Epoch %d / lr %f]' % (epoch + 1, self.scheduler['gen'].get_last_lr()[-1]))
 			tq = tqdm(self.dataset['train'], ncols=80, smoothing=0, bar_format='{desc}|{bar}{r_bar}')
-			# tq = self.dataset['train']
 
 			for idx, batch in enumerate(tq):
 				blur = batch[0]
 				sharp = batch[1]
 
-				for param in self.model.gen.parameters():
-					param.requires_grad = False
+				for i in range(len(blur)):
+					blur[i] = blur[i].cuda()
+					sharp[i] = sharp[i].cuda()
 
 				fake, gen_loss, adv_loss = self.model(blur, sharp)
+				self.optimizer['gen'].zero_grad()
 				self.optimizer['adv'].zero_grad()
 				adv_loss.backward()
 				self.optimizer['adv'].step()
-				self.scheduler['adv'].step()
 				
-				for param in self.model.gen.parameters():
-					param.requires_grad = True
-
-				self.optimizer['gen'].zero_grad()
 				gen_loss.backward()
 				self.optimizer['gen'].step()
-				self.scheduler['gen'].step()
 
 				gen_loss_t += gen_loss.item()
 				adv_loss_t += adv_loss.item()
 				ct += 1
+
+				tq.set_description('[Adv Loss: %.3f / Gen Loss: %.3f]' % (adv_loss_t / ct, gen_loss_t / ct))
+
+			self.scheduler['adv'].step()
+			self.scheduler['gen'].step()
 
 			print('[Epoch %d / Adv Loss: %.3f / Gen Loss: %.3f]' % (epoch + 1, adv_loss_t / ct, gen_loss_t / ct))
 
@@ -88,12 +87,16 @@ class Trainer():
 		ssim_t = 0.0
 		ct = 0
 
-		torch.set_grad_enabled(False)		
+		torch.set_grad_enabled(False)       
 		tq = tqdm(self.dataset[mode], ncols=80, smoothing=0, bar_format='{desc}|{bar}{r_bar}')
 
 		for idx, batch in enumerate(tq):
 			blur = batch[0]
 			sharp = batch[1]
+
+			for i in range(len(blur)):
+				blur[i] = blur[i].cuda()
+				sharp[i] = sharp[i].cuda()
 			
 			fake, gen_loss, adv_loss = self.model(blur, sharp)
 			gen_loss_t += gen_loss.item()
@@ -103,5 +106,5 @@ class Trainer():
 			psnr_t += psnr(sharp[-1], fake[-1])
 			ssim_t += ssim(sharp[-1], fake[-1])
 
-		print('[Epoch %d / Val Adv Loss: %.3f / Val Gen Loss: %.3f / PSNR: %.3f / SSIM: %.3f]' 
-			% (epoch + 1, adv_loss_t / ct, gen_loss_t / ct, psnr_t / ct, ssim_t / ct))
+		print('[Val Adv Loss: %.3f / Val Gen Loss: %.3f / PSNR: %.3f / SSIM: %.3f]' 
+			% (adv_loss_t / ct, gen_loss_t / ct, psnr_t / ct, ssim_t / ct))
