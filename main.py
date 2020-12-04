@@ -34,6 +34,9 @@ if __name__ == '__main__':
 	parser.add_argument('-save_every', type=int, default=50, help='save state at every N epochs')
 	parser.add_argument('-n_epochs', type=int, default=1000, help='number of epochs to train')
 	parser.add_argument('-train_adv_only', type=bool, default=False, help='to train only the adversary')
+	parser.add_argument('-lr', type=float, default=1e-4, help='learning rate')
+	parser.add_argument('-milestones', type=int, nargs='+', default=[500, 750, 900], help='milestones for learning rate decay')
+	parser.add_argument('-gamma', type=float, default=0.5, help='learning rate decay factor')
 	args = parser.parse_args()
 
 	torch.backends.cudnn.deterministic = True
@@ -87,10 +90,10 @@ if __name__ == '__main__':
 	dataset = {'train': train_loader, 'val': val_loader, 'test': test_loader}
 	model = Model(args)
 	model.to('cuda:0')
-	optim_adv = optim.Adam(model.adv.parameters(), lr=1e-4)
-	scheduler_adv = lrs.MultiStepLR(optim_adv, milestones=[500, 750, 900], gamma=0.5)
-	optim_gen = optim.Adam(model.gen.parameters(), lr=1e-4)
-	scheduler_gen = lrs.MultiStepLR(optim_gen, milestones=[500, 750, 900], gamma=0.5)
+	optim_adv = optim.Adam(model.adv.parameters(), lr=args.lr)
+	scheduler_adv = lrs.MultiStepLR(optim_adv, milestones=args.milestones, gamma=args.gamma)
+	optim_gen = optim.Adam(model.gen.parameters(), lr=args.lr)
+	scheduler_gen = lrs.MultiStepLR(optim_gen, milestones=args.milestones, gamma=args.gamma)
 	optimizer = {'adv':optim_adv, 'gen':optim_gen}
 	scheduler = {'adv':scheduler_adv, 'gen':scheduler_gen}
 	trainer = Trainer(args, model, optimizer, scheduler, dataset)

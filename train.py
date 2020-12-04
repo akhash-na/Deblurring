@@ -54,11 +54,11 @@ class Trainer():
 					sharp[i] = sharp[i].cuda()
 
 				fake, gen_loss, adv_loss = self.model(blur, sharp)
-				self.optimizer['gen'].zero_grad()
 				self.optimizer['adv'].zero_grad()
 				adv_loss.backward()
 				self.optimizer['adv'].step()
 				
+				self.optimizer['gen'].zero_grad()
 				gen_loss.backward()
 				self.optimizer['gen'].step()
 
