@@ -46,20 +46,19 @@ class Generator(nn.Module):
 
 	def forward(self, input_pyramid):
 		for i in range(len(input_pyramid)):
-			input_pyramid[i] -= 128
+			input_pyramid[i] -= 127
 
 		output_pyramid = [None] * self.n_scales
-		x = input_pyramid[0]
 
+		x = input_pyramid[0]
 		for i in range(self.n_scales):
 			output_pyramid[i] = self.scales[i](x)
-			if i+1 < len(input_pyramid):
-				upscaled = self.upscalers[i](output_pyramid[i]).clone().detach()
-				upscaled.requires_grad = True
+			if i+1 < self.n_scales:
+				upscaled = self.upscalers[i](output_pyramid[i])
 				x = torch.cat((input_pyramid[i+1], upscaled), 1)
 
 		for i in range(len(output_pyramid)):
-			output_pyramid[i] += 128
+			output_pyramid[i] = output_pyramid[i] + 127
 
 		return output_pyramid
 
@@ -92,37 +91,5 @@ class Adversary(nn.Module):
 		)
 
 	def forward(self, x):
-		y = self.adv(x).clone().detach()
-		y.requires_grad = True
+		y = self.adv(x)
 		return y
-
-class Model(nn.Module):
-	def __init__(self, args):
-		super(Model, self).__init__()
-		self.gen = Generator(args.n_resblocks, args.n_features, args.kernel_size, args.n_scales)
-		self.adv = Adversary(args.n_features, args.kernel_size)
-		self.BCELoss = nn.BCEWithLogitsLoss()
-		self.MSELoss = nn.MSELoss()
-		self.lamda = args.adv_loss_weight
-
-
-	def forward(self, blur, sharp=None):
-		fake = self.gen(blur)
-		if sharp is not None:
-			fake_pred = self.adv(fake[-1])
-			real_pred = self.adv(sharp[-1])
-
-			label_fake = torch.zeros_like(fake_pred)
-			label_real = torch.ones_like(real_pred)
-
-			adv_loss = self.BCELoss(fake_pred, label_fake) + self.BCELoss(real_pred, label_real)
-			gen_adv_loss = self.BCELoss(fake_pred, label_real)
-			gen_mse_loss = 0
-			for i in range(len(fake)):
-				gen_mse_loss += self.MSELoss(fake[i], sharp[i])
-			gen_loss = gen_adv_loss * self.lamda + gen_mse_loss
-		else:
-			gen_loss = None
-			adv_loss = None
-
-		return fake, gen_loss, adv_loss

@@ -10,7 +10,7 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as lrs
 
 from dataset import Dataset
-from model import Model
+from model import Generator, Adversary
 from train import Trainer
 
 
@@ -90,14 +90,15 @@ if __name__ == '__main__':
 		test_loader = None
 
 	dataset = {'train': train_loader, 'val': val_loader, 'test': test_loader}
-	model = Model(args)
-	model.to('cuda:0')
-	optim_adv = optim.Adam(model.adv.parameters(), lr=args.lr)
+	gen = Generator(args.n_resblocks, args.n_features, args.kernel_size, args.n_scales).cuda()
+	adv = Adversary(args.n_features, args.kernel_size).cuda()
+	optim_adv = optim.Adam(adv.parameters(), lr=args.lr)
 	scheduler_adv = lrs.MultiStepLR(optim_adv, milestones=args.milestones, gamma=args.gamma)
-	optim_gen = optim.Adam(model.gen.parameters(), lr=args.lr)
+	optim_gen = optim.Adam(gen.parameters(), lr=args.lr)
 	scheduler_gen = lrs.MultiStepLR(optim_gen, milestones=args.milestones, gamma=args.gamma)
 	optimizer = {'adv':optim_adv, 'gen':optim_gen}
 	scheduler = {'adv':scheduler_adv, 'gen':scheduler_gen}
+	model = {'adv':adv, 'gen':gen}
 	trainer = Trainer(args, model, optimizer, scheduler, dataset)
 	
 	trainer.train()

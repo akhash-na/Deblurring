@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
 import numpy as np
@@ -14,7 +15,8 @@ class Trainer():
 		self.dataset = dataset
 		if args.pretrained != '':
 			checkpoint = torch.load(args.pretrained)
-			self.model.load_state_dict(checkpoint['model'])
+			self.model['adv'].load_state_dict(checkpoint['adv_model'])
+			self.model['gen'].load_state_dict(checkpoint['gen_model'])
 			self.optimizer['adv'].load_state_dict(checkpoint['adv_optimizer'])
 			self.optimizer['gen'].load_state_dict(checkpoint['gen_optimizer'])
 			self.scheduler['adv'].load_state_dict(checkpoint['adv_lrs'])
@@ -24,7 +26,8 @@ class Trainer():
 		epoch = self.args.n_epochs if epoch is None else epoch  
 		checkpoint = { 
 			'epoch': epoch,
-			'model': self.model.state_dict(),
+			'adv_model': self.model['adv'].state_dict(),
+			'gen_model': self.model['gen'].state_dict(),
 			'adv_optimizer': self.optimizer['adv'].state_dict(),
 			'gen_optimizer': self.optimizer['gen'].state_dict(),
 			'adv_lrs': self.scheduler['adv'].state_dict(),
@@ -33,7 +36,11 @@ class Trainer():
 		torch.save(checkpoint, os.path.join(self.args.save_dir, 'checkpoint-epoch-'+str(epoch)+'.pt'))
 
 	def train(self):
-		self.model.train()
+		self.model['adv'].train()
+		self.model['gen'].train()
+
+		BCE = nn.BCEWithLogitsLoss()
+		MSE = nn.MSELoss()
 
 		for epoch in range(self.args.n_epochs):
 			gen_loss_t = 0.0
@@ -53,13 +60,27 @@ class Trainer():
 					blur[i] = blur[i].cuda()
 					sharp[i] = sharp[i].cuda()
 
-				fake, gen_loss, adv_loss = self.model(blur, sharp)
+				fake = self.model['gen'](blur)
+
+				fake_adv = fake[-1].detach()
+
+				fake_pred = self.model['adv'](fake_adv)
+				real_pred = self.model['adv'](sharp[-1])
+
+				fake_label = torch.zeros_like(fake_pred)
+				real_label = torch.ones_like(real_pred)
+
+				adv_loss = BCE(fake_pred, fake_label) + BCE(real_pred, real_label)
 
 				if not self.args.alternating or (self.args.alternating and epoch >= self.args.gen_warmup_epochs): 
 					self.optimizer['adv'].zero_grad()
 					adv_loss.backward()
 					self.optimizer['adv'].step()
-				
+
+				gen_loss = self.args.adv_loss_weight * BCE(self.model['adv'](fake[-1]), real_label)
+				for i in range(len(fake)):
+					gen_loss += MSE(fake[i], sharp[i])
+
 				if not self.args.alternating or (self.args.alternating and (epoch < self.args.gen_warmup_epochs or epoch >= self.args.gen_warmup_epochs + self.args.adv_warmup_epochs)):
 					self.optimizer['gen'].zero_grad()
 					gen_loss.backward()
@@ -74,8 +95,6 @@ class Trainer():
 			self.scheduler['adv'].step()
 			self.scheduler['gen'].step()
 
-			print('[Epoch %d / Adv Loss: %.3f / Gen Loss: %.3f]' % (epoch + 1, adv_loss_t / ct, gen_loss_t / ct))
-
 			if (epoch + 1) % self.args.save_every == 0:
 				self.save(epoch + 1)
 
@@ -83,7 +102,11 @@ class Trainer():
 				self.evaluate('val')
 
 	def evaluate(self, mode):
-		self.model.eval()
+		self.model['adv'].eval()
+		self.model['gen'].eval()
+
+		BCE = nn.BCEWithLogitsLoss()
+		MSE = nn.MSELoss()
 
 		gen_loss_t = 0.0
 		adv_loss_t = 0.0
@@ -102,7 +125,21 @@ class Trainer():
 				blur[i] = blur[i].cuda()
 				sharp[i] = sharp[i].cuda()
 			
-			fake, gen_loss, adv_loss = self.model(blur, sharp)
+			fake = self.model['gen'](blur)
+			fake_adv = fake[-1]
+
+			fake_pred = self.model['adv'](fake_adv)
+			real_pred = self.model['adv'](sharp[-1])
+
+			fake_label = torch.zeros_like(fake_pred)
+			real_label = torch.ones_like(real_pred)
+
+			adv_loss = BCE(fake_pred, fake_label) + BCE(real_pred, real_label)
+
+			gen_loss = self.args.adv_loss_weight * BCE(self.model['adv'](fake[-1]), real_label)
+			for i in range(len(fake)):
+				gen_loss += MSE(fake[i], sharp[i])
+			
 			gen_loss_t += gen_loss.item()
 			adv_loss_t += adv_loss.item()
 			ct += 1
@@ -113,5 +150,5 @@ class Trainer():
 			psnr_t += psnr(im1, im2, data_range=255)
 			ssim_t += ssim(im1, im2, data_range=255, multichannel=True)
 
-		print('[Val Adv Loss: %.3f / Val Gen Loss: %.3f / PSNR: %.3f / SSIM: %.3f]' 
-			% (adv_loss_t / ct, gen_loss_t / ct, psnr_t / ct, ssim_t / ct))
+			tq.set_description('[Val Adv Loss: %.3f / Val Gen Loss: %.3f / PSNR: %.3f / SSIM: %.3f]' 
+				% (adv_loss_t / ct, gen_loss_t / ct, psnr_t / ct, ssim_t / ct))
