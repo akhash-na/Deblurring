@@ -54,13 +54,16 @@ class Trainer():
 					sharp[i] = sharp[i].cuda()
 
 				fake, gen_loss, adv_loss = self.model(blur, sharp)
-				self.optimizer['adv'].zero_grad()
-				adv_loss.backward()
-				self.optimizer['adv'].step()
+
+				if not self.args.alternating or (self.args.alternating and epoch >= self.args.gen_warmup_epochs): 
+					self.optimizer['adv'].zero_grad()
+					adv_loss.backward()
+					self.optimizer['adv'].step()
 				
-				self.optimizer['gen'].zero_grad()
-				gen_loss.backward()
-				self.optimizer['gen'].step()
+				if not self.args.alternating or (self.args.alternating and (epoch < self.args.gen_warmup_epochs or epoch >= self.args.gen_warmup_epochs + self.args.adv_warmup_epochs)):
+					self.optimizer['gen'].zero_grad()
+					gen_loss.backward()
+					self.optimizer['gen'].step()
 
 				gen_loss_t += gen_loss.item()
 				adv_loss_t += adv_loss.item()
