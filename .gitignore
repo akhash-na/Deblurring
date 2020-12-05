@@ -131,3 +131,4 @@ dmypy.json
 *.zip
 models/
 GOPRO_Large/
+plots/

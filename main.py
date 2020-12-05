@@ -1,6 +1,8 @@
 import argparse
 import os
 import time
+import random
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -41,14 +43,16 @@ if __name__ == '__main__':
 	parser.add_argument('-gamma', type=float, default=0.5, help='learning rate decay factor')
 	args = parser.parse_args()
 
-	torch.backends.cudnn.deterministic = True
+	if args.seed < 0:
+		args.seed = int(time.time())
+
 	torch.manual_seed(args.seed)
+	torch.cuda.manual_seed_all(args.seed)
+	np.random.seed(args.seed)
+	random.seed(args.seed)
 
 	if not os.path.exists(args.save_dir):
 		os.mkdir(args.save_dir)
-
-	if args.seed < 0:
-		args.seed = int(time.time())
 
 	if args.do_train:
 		train_dataset = Dataset(args, 'train')
@@ -57,6 +61,7 @@ if __name__ == '__main__':
 						batch_size=args.batch_size,
 						shuffle=False,
 						sampler=RandomSampler(train_dataset, replacement=True),
+						num_workers=8,
 						pin_memory=True,
 						drop_last=True,
 					)
@@ -70,6 +75,7 @@ if __name__ == '__main__':
 						batch_size=1,
 						shuffle=False,
 						sampler=SequentialSampler(val_dataset),
+						num_workers=8,
 						pin_memory=True,
 						drop_last=False,
 					)
@@ -83,6 +89,7 @@ if __name__ == '__main__':
 						batch_size=1,
 						shuffle=False,
 						sampler=SequentialSampler(test_dataset),
+						num_workers=8,
 						pin_memory=True,
 						drop_last=False,
 					)
@@ -102,6 +109,7 @@ if __name__ == '__main__':
 	trainer = Trainer(args, model, optimizer, scheduler, dataset)
 	
 	trainer.train()
+	trainer.plot()
 
 	if args.do_test:
 		trainer.evaluate('test')
