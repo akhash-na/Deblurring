@@ -95,7 +95,6 @@ class Trainer():
 				ct += 1
 
 				tq.set_description('[Adv Loss: %.3f / Gen Loss: %.3f]' % (adv_loss_t / ct, gen_loss_t / ct))
-				break
 
 			self.plotloss.append(adv_loss_t / ct)
 
@@ -161,7 +160,6 @@ class Trainer():
 
 			tq.set_description('[Loss: %.3f / PSNR: %.3f / SSIM: %.3f]' 
 				% (gen_loss_t / ct, psnr_t / ct, ssim_t / ct))
-			break
 
 	def plot(self):
 		plt.plot(range(1, len(self.plotloss)+1), self.plotloss)
