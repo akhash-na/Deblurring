@@ -108,8 +108,9 @@ if __name__ == '__main__':
 	model = {'adv':adv, 'gen':gen}
 	trainer = Trainer(args, model, optimizer, scheduler, dataset)
 	
-	trainer.train()
-	trainer.plot()
+	if args.do_train:
+		trainer.train()
+		trainer.plot()
 
 	if args.do_test:
 		trainer.evaluate('test')

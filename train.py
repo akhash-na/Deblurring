@@ -131,10 +131,8 @@ class Trainer():
 				sharp[i] = sharp[i].cuda()
 		
 			fake = self.model['gen'](blur)
-			real_pred = self.model['adv'](sharp[-1])
-			real_label = torch.ones_like(real_pred)
 
-			gen_loss = self.args.adv_loss_weight * BCE(self.model['adv'](fake[-1]), real_label)
+			gen_loss = 0
 			for i in range(len(fake)):
 				gen_loss += MSE(fake[i], sharp[i])
 			
