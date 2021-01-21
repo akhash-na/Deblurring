@@ -96,7 +96,7 @@ class Trainer():
 
 				tq.set_description('[Adv Loss: %.3f / Gen Loss: %.3f]' % (adv_loss_t / ct, gen_loss_t / ct))
 
-			self.plotloss.append(adv_loss_t / ct)
+			self.plotloss.append(gen_loss_t / ct)
 
 			self.scheduler['adv'].step()
 			self.scheduler['gen'].step()
@@ -114,12 +114,13 @@ class Trainer():
 		BCE = nn.BCEWithLogitsLoss()
 		MSE = nn.MSELoss()
 
+		torch.set_grad_enabled(False)
+
 		gen_loss_t = 0.0
 		psnr_t = 0.0
 		ssim_t = 0.0
 		ct = 0
 
-		torch.set_grad_enabled(False)       
 		tq = tqdm(self.dataset[mode], ncols=80, smoothing=0, bar_format='{desc}|{bar}{r_bar}')
 
 		for idx, batch in enumerate(tq):
